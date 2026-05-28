@@ -222,6 +222,7 @@ def validate_graph(
         AkidaToolchainError: If validation finds blocking issues.
     """
     logger.info("Stage: validation")
+    output_dir.mkdir(parents=True, exist_ok=True)
     report = AkidaValidator(profile).validate(graph)
 
     report_dict = {

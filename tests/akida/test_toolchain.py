@@ -34,23 +34,6 @@ from nir.akida.toolchain import (
     validate_graph,
 )
 
-# ---------------------------------------------------------------------------
-# Skip markers
-# ---------------------------------------------------------------------------
-
-requires_keras = pytest.mark.skipif(
-    not _has_keras(),
-    reason="keras/tensorflow not installed",
-)
-requires_quantizeml = pytest.mark.skipif(
-    not _has_quantizeml(),
-    reason="quantizeml not installed (BrainChip optional dependency)",
-)
-requires_cnn2snn = pytest.mark.skipif(
-    not _has_cnn2snn(),
-    reason="cnn2snn not installed (BrainChip optional dependency)",
-)
-
 
 def _has_keras() -> bool:
     try:
@@ -79,6 +62,24 @@ def _has_cnn2snn() -> bool:
         return True
     except ImportError:
         return False
+
+
+# ---------------------------------------------------------------------------
+# Skip markers
+# ---------------------------------------------------------------------------
+
+requires_keras = pytest.mark.skipif(
+    not _has_keras(),
+    reason="keras/tensorflow not installed",
+)
+requires_quantizeml = pytest.mark.skipif(
+    not _has_quantizeml(),
+    reason="quantizeml not installed (BrainChip optional dependency)",
+)
+requires_cnn2snn = pytest.mark.skipif(
+    not _has_cnn2snn(),
+    reason="cnn2snn not installed (BrainChip optional dependency)",
+)
 
 
 # ---------------------------------------------------------------------------
