@@ -51,6 +51,19 @@ keras_model.summary()
 keras_model.save("my_model.h5")
 ```
 
+## Persisting Akida-ready graphs
+
+Akida-specific settings live in each node's standard `metadata` dictionary, so
+they round-trip through the normal NIR file format. This lets you annotate a
+graph once and reload it later without rebuilding the quantization metadata.
+
+```python
+import nir
+
+nir.write("my_model_akida_ready.nir", graph)
+graph = nir.read("my_model_akida_ready.nir")
+```
+
 ## Validation gate
 
 `export_keras` always runs the validator internally before building the Keras

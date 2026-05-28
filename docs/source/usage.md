@@ -67,7 +67,7 @@ To write this graph to file, you can use
 
 ```python
 import nir
-nir.write(nir_model, "my_model.nir")
+nir.write("my_model.nir", nir_model)
 ```
 
 ### Reading a NIR file
@@ -77,6 +77,9 @@ Reading a NIR file is similarly easy and will give you a graph object that you c
 import nir
 nir_model = nir.read("my_model.nir")
 ```
+
+Any backend-specific annotations stored in `node.metadata` are preserved across
+`nir.write(...)` / `nir.read(...)` as part of the standard NIR file.
 
 Note that the graph object (`nir_model`) doesn't do anything by itself.
 You still need to convert it to a format that your hardware or simulator can understand.
