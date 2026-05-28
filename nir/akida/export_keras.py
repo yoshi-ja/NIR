@@ -57,21 +57,52 @@ class AkidaExportError(Exception):
 # ---------------------------------------------------------------------------
 
 # Lazy Keras import so that the module can be loaded without Keras installed.
-def _keras():
+def _keras(*, prefer_tf_keras: bool = False):
+    if prefer_tf_keras:
+        try:
+            import tf_keras as keras  # QuantizeML/CNN2SNN-compatible backend
+            return keras
+        except ImportError:
+            pass
+        try:
+            import tensorflow.keras as keras  # type: ignore
+            return keras
+        except ImportError:
+            pass
+        try:
+            import keras
+            return keras
+        except ImportError:
+            raise ImportError(
+                "Keras is required for export_keras.  Install it with:\n"
+                "  pip install tf-keras\n"
+                "or\n"
+                "  pip install keras\n"
+                "or\n"
+                "  pip install tensorflow"
+            )
+
     try:
         import keras  # standalone Keras 3 / tf.keras
         return keras
     except ImportError:
         pass
     try:
-        import tensorflow.keras as keras  # tf.keras fallback
+        import tensorflow.keras as keras  # type: ignore
+        return keras
+    except ImportError:
+        pass
+    try:
+        import tf_keras as keras  # type: ignore
         return keras
     except ImportError:
         raise ImportError(
             "Keras is required for export_keras.  Install it with:\n"
             "  pip install keras\n"
             "or\n"
-            "  pip install tensorflow"
+            "  pip install tensorflow\n"
+            "or\n"
+            "  pip install tf-keras"
         )
 
 
@@ -116,10 +147,11 @@ def _input_shape_from_graph(graph: nir.NIRGraph) -> Tuple[int, ...]:
 
 def _export_linear(name: str, node: nir.Linear, keras: Any) -> Any:
     w = node.weight  # shape (out, in) in NIR convention
+    kernel = np.asarray(w.T, dtype=np.float32)  # Keras Dense expects (in, out)
     return keras.layers.Dense(
         units=w.shape[0],
         use_bias=False,
-        weights=[w.T],  # Keras Dense expects (in, out)
+        kernel_initializer=keras.initializers.Constant(kernel),
         name=name,
     )
 
@@ -127,10 +159,13 @@ def _export_linear(name: str, node: nir.Linear, keras: Any) -> Any:
 def _export_affine(name: str, node: nir.Affine, keras: Any) -> Any:
     w = node.weight  # shape (out, in)
     b = node.bias
+    kernel = np.asarray(w.T, dtype=np.float32)
+    bias = np.asarray(b, dtype=np.float32)
     return keras.layers.Dense(
         units=w.shape[0],
         use_bias=True,
-        weights=[w.T, b],
+        kernel_initializer=keras.initializers.Constant(kernel),
+        bias_initializer=keras.initializers.Constant(bias),
         name=name,
     )
 
@@ -138,9 +173,9 @@ def _export_affine(name: str, node: nir.Affine, keras: Any) -> Any:
 def _export_conv2d(name: str, node: nir.Conv2d, keras: Any) -> Any:
     w = node.weight  # (C_out, C_in, H, W) — NIR convention
     # Keras Conv2D expects kernel shape (H, W, C_in, C_out)
-    kernel = np.transpose(w, (2, 3, 1, 0))
+    kernel = np.asarray(np.transpose(w, (2, 3, 1, 0)), dtype=np.float32)
     use_bias = node.bias is not None and np.any(node.bias != 0)
-    weights = [kernel, node.bias] if use_bias else [kernel]
+    bias = np.asarray(node.bias, dtype=np.float32) if use_bias else None
     stride = node.stride if isinstance(node.stride, (list, tuple)) else (node.stride, node.stride)
     padding = node.padding
     if isinstance(padding, str):
@@ -155,8 +190,10 @@ def _export_conv2d(name: str, node: nir.Conv2d, keras: Any) -> Any:
         kernel_size=(w.shape[2], w.shape[3]),
         strides=stride,
         padding=keras_padding,
+        data_format="channels_first",
         use_bias=use_bias,
-        weights=weights,
+        kernel_initializer=keras.initializers.Constant(kernel),
+        bias_initializer=keras.initializers.Constant(bias) if use_bias else "zeros",
         name=name,
     )
 
@@ -164,9 +201,9 @@ def _export_conv2d(name: str, node: nir.Conv2d, keras: Any) -> Any:
 def _export_conv1d(name: str, node: nir.Conv1d, keras: Any) -> Any:
     w = node.weight  # (C_out, C_in, L) — NIR convention
     # Keras Conv1D expects kernel shape (L, C_in, C_out)
-    kernel = np.transpose(w, (2, 1, 0))
+    kernel = np.asarray(np.transpose(w, (2, 1, 0)), dtype=np.float32)
     use_bias = node.bias is not None and np.any(node.bias != 0)
-    weights = [kernel, node.bias] if use_bias else [kernel]
+    bias = np.asarray(node.bias, dtype=np.float32) if use_bias else None
     stride = node.stride if isinstance(node.stride, (int,)) else node.stride[0]
     padding_val = node.padding
     if isinstance(padding_val, str):
@@ -178,8 +215,10 @@ def _export_conv1d(name: str, node: nir.Conv1d, keras: Any) -> Any:
         kernel_size=w.shape[2],
         strides=stride,
         padding=keras_padding,
+        data_format="channels_first",
         use_bias=use_bias,
-        weights=weights,
+        kernel_initializer=keras.initializers.Constant(kernel),
+        bias_initializer=keras.initializers.Constant(bias) if use_bias else "zeros",
         name=name,
     )
 
@@ -273,6 +312,7 @@ def export_keras(
     profile: AkidaTargetProfile,
     *,
     skip_validation: bool = False,
+    prefer_tf_keras: bool = False,
 ) -> Any:
     """Convert a NIR graph to a Keras Sequential model for Akida deployment.
 
@@ -296,7 +336,7 @@ def export_keras(
             validation fails (when *skip_validation* is False).
         ImportError: If Keras is not installed.
     """
-    keras = _keras()
+    keras = _keras(prefer_tf_keras=prefer_tf_keras)
 
     if not skip_validation:
         report = AkidaValidator(profile).validate(graph)

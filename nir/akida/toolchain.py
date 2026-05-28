@@ -185,17 +185,21 @@ def _import_cnn2snn() -> Any:
 
 def _import_keras_for_save() -> Any:
     try:
-        import keras
+        import tf_keras as keras  # type: ignore
         return keras
     except ImportError:
         try:
             import tensorflow.keras as keras  # type: ignore
             return keras
         except ImportError:
-            raise ImportError(
-                "keras is required to save/load models.\n"
-                "  pip install keras  OR  pip install tensorflow"
-            )
+            try:
+                import keras
+                return keras
+            except ImportError:
+                raise ImportError(
+                    "keras is required to save/load models.\n"
+                    "  pip install keras  OR  pip install tensorflow"
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -274,8 +278,14 @@ def export_to_keras(
         AkidaToolchainError: If the export fails.
     """
     logger.info("Stage: export")
+    output_dir.mkdir(parents=True, exist_ok=True)
     try:
-        keras_model = export_keras(graph, profile, skip_validation=True)
+        keras_model = export_keras(
+            graph,
+            profile,
+            skip_validation=True,
+            prefer_tf_keras=True,
+        )
     except AkidaExportError as exc:
         raise AkidaToolchainError(
             f"Keras export failed: {exc}",
