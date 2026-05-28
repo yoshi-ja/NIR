@@ -29,6 +29,7 @@ project:
         - file: examples/index.md
           title: Examples
           children:
+            - file: examples/brian2/nir-conversion.ipynb
             - file: examples/hxtorch/nir-conversion.ipynb
             - file: examples/jaxsnn/nir-conversion.ipynb
             - file: examples/lava/nir-conversion.ipynb
