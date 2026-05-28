@@ -16,7 +16,7 @@ import nir
 
 # nir_bindsnet applies a compatibility shim for newer PyTorch versions
 # before importing BindsNET, so import it first.
-import nir_bindsnet  # noqa: F401 – triggers _compat patch
+import nir_bindsnet  # noqa: F401 - triggers _compat patch
 
 from bindsnet.network import Network
 from bindsnet.network.nodes import Input as BNInput

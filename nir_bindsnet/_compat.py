@@ -13,7 +13,7 @@ import types
 def _patch_torch_six():
     """Inject a ``torch._six`` stub if it does not already exist."""
     if "torch._six" not in sys.modules:
-        import torch  # noqa: F401 – ensures torch is initialised first
+        import torch  # noqa: F401 - ensures torch is initialised first
 
         module = types.ModuleType("torch._six")
         module.container_abcs = collections.abc
