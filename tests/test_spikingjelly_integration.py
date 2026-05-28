@@ -287,13 +287,19 @@ class TestConv2dRoundtrip:
         example_input = torch.zeros(1, 1, 8, 8)
         nir_graph, _ = _export_import(net, example_input)
 
+        # Retrieve Conv2d module weight directly via isinstance check
+        orig_conv = None
+        for m in net.modules():
+            if isinstance(m, nn.Conv2d):
+                orig_conv = m
+                break
+        assert orig_conv is not None, "No nn.Conv2d found in source model"
+
         # Retrieve weight from NIR graph directly
         for node in nir_graph.nodes.values():
             if isinstance(node, nir.Conv2d):
                 w_nir = node.weight
-                w_orig = (
-                    list(net.modules())[1].weight.detach().cpu().numpy()
-                )
+                w_orig = orig_conv.weight.detach().cpu().numpy()
                 assert np.allclose(w_orig, w_nir, rtol=1e-5, atol=1e-6), (
                     "Conv2d weight changed after NIR export"
                 )
@@ -310,12 +316,14 @@ class TestConv2dRoundtrip:
 
         for node in nir_graph.nodes.values():
             if isinstance(node, nir.Conv2d):
-                assert np.array_equal(
-                    np.atleast_1d(node.stride), np.array([stride, stride])
-                ), "Conv2d stride changed after NIR export"
-                assert np.array_equal(
-                    np.atleast_1d(node.padding), np.array([padding, padding])
-                ), "Conv2d padding changed after NIR export"
+                node_stride = np.atleast_1d(np.asarray(node.stride).flatten())
+                node_padding = np.atleast_1d(np.asarray(node.padding).flatten())
+                assert np.array_equal(node_stride, np.array([stride, stride])), (
+                    "Conv2d stride changed after NIR export"
+                )
+                assert np.array_equal(node_padding, np.array([padding, padding])), (
+                    "Conv2d padding changed after NIR export"
+                )
 
 
 # ---------------------------------------------------------------------------
